@@ -3,12 +3,47 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "prebuild": "mkdir -p dist",
+    "bundle": "esbuild src/index.js --bundle --platform=node --outfile=dist/bundle.js --format=cjs --external:typescript",
+    "sea:prep": "node --experimental-sea-config sea-config.json",
+    "sea:copy": "cp $(which node) dist/woocommerce-scraper",
+    "sea:sign": "node scripts/sign.js",
+    "sea:inject": "node scripts/inject.js",
+    "build": "npm run bundle && npm run sea:prep && npm run sea:copy && npm run sea:sign && npm run sea:inject",
+    "build:mac": "npm run bundle && npm run sea:prep && npm run sea:copy:mac && npm run sea:sign:mac && npm run sea:inject:mac", 
+    "build:linux": "npm run bundle && npm run sea:prep && npm run sea:copy:linux && npm run sea:inject:linux",
+    
+    "sea:copy:mac": "cp $(which node) dist/woocommerce-scraper",
+    "sea:copy:linux": "cp $(which node) dist/woocommerce-scraper",
+    
+    "sea:sign:mac": "node scripts/sign.js mac",
+    
+    "sea:inject:mac": "node scripts/inject.js mac",
+    "sea:inject:linux": "node scripts/inject.js linux",
+    
+    "build:all": "npm run build:mac && npm run build:linux",
+    "download:win-node": "curl -o dist/node.exe https://nodejs.org/dist/v20.12.0/win-x64/node.exe",
+    "sea:copy:win": "copy dist\\node.exe dist\\woocommerce-scraper.exe",
+    "sea:inject:win": "node scripts/inject.js win",
+    "build:win": "npm run bundle && npm run sea:prep && npm run download:win-node && npm run sea:copy:win && npm run sea:inject:win"
   },
   "dependencies": {
-    "puppeteer": "^21.5.0",
     "csv-writer": "^1.6.0",
+    "fast-xml-parser": "^4.5.0",
+    "node-fetch": "^3.3.2",
     "ora": "^7.0.1",
-    "prompts": "^2.4.2"
+    "prompts": "^2.4.2",
+    "puppeteer": "^22.8.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.1",
+    "postject": "^1.0.0-alpha.6"
+  },
+  "bin": "src/index.js",
+  "pkg": {
+    "assets": [
+      "src/**/*"
+    ]
   }
 }

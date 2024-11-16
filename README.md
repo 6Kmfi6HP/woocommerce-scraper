@@ -2,14 +2,30 @@
 
 This tool allows you to scrape product data from any WooCommerce-powered website and export it to CSV format for easy import into another WooCommerce site.
 
-## Features
+## Installation
 
-- Scrapes products from any WooCommerce store
-- Supports variable products with all variations
-- Captures all product data (name, description, prices, images, etc.)
-- Exports to CSV format compatible with WooCommerce import
+### Using pre-built binaries
+
+1. Download the latest release for your platform from the Releases page
+2. Extract the archive
+3. Run the executable from terminal/command prompt
+
+### Building from source
+
+1. Clone this repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Build binaries:
+   ```bash 
+   npm run build
+   ```
+   This will create executables in the dist/ directory for Windows, Mac and Linux.
 
 ## Usage
+
+### Using binary
 
 1. Run the scraper:
    ```bash
