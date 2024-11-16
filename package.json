@@ -26,7 +26,10 @@
     "download:win-node": "curl -o dist/node.exe https://nodejs.org/dist/v20.12.0/win-x64/node.exe",
     "sea:copy:win": "copy dist\\node.exe dist\\woocommerce-scraper.exe",
     "sea:inject:win": "node scripts/inject.js win",
-    "build:win": "npm run bundle && npm run sea:prep && npm run download:win-node && npm run sea:copy:win && npm run sea:inject:win"
+    "build:win": "npm run bundle && npm run sea:prep && npm run download:win-node && npm run sea:copy:win && npm run sea:inject:win",
+    "build:ci:linux": "npm run bundle && npm run sea:prep && npm run sea:copy:linux && npm run sea:inject:linux",
+    "build:ci:mac": "npm run bundle && npm run sea:prep && npm run sea:copy:mac && npm run sea:sign:mac && npm run sea:inject:mac",
+    "build:ci:win": "npm run bundle && npm run sea:prep && npm run download:win-node && npm run sea:copy:win && npm run sea:inject:win"
   },
   "dependencies": {
     "csv-writer": "^1.6.0",

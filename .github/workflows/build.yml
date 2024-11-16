@@ -1,0 +1,65 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            build_script: build:linux
+            artifact_name: woocommerce-scraper-linux
+          - os: macos-latest  
+            build_script: build:mac
+            artifact_name: woocommerce-scraper-mac
+          - os: windows-latest
+            build_script: build:win
+            artifact_name: woocommerce-scraper-win.exe
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build binary
+        run: npm run ${{ matrix.build_script }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/woocommerce-scraper*
+          
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            woocommerce-scraper-linux/woocommerce-scraper
+            woocommerce-scraper-mac/woocommerce-scraper  
+            woocommerce-scraper-win.exe/woocommerce-scraper.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
