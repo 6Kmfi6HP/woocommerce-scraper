@@ -16,14 +16,14 @@ jobs:
           - os: ubuntu-latest
             build_script: build:linux
             artifact_name: woocommerce-scraper-linux
-            binary_name: woocommerce-scraper-linux-x64
+            binary_name: woocommerce-scraper-linux
           - os: macos-latest  
             build_script: build:mac
             artifact_name: woocommerce-scraper-mac
-            binary_name: woocommerce-scraper-darwin-x64
+            binary_name: woocommerce-scraper-mac
           - os: windows-latest
             build_script: build:win
-            artifact_name: woocommerce-scraper-win
+            artifact_name: woocommerce-scraper-win.exe
             binary_name: woocommerce-scraper.exe
 
     steps:
@@ -39,6 +39,15 @@ jobs:
         
       - name: Build binary
         run: npm run ${{ matrix.build_script }}
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            mv dist/woocommerce-scraper dist/woocommerce-scraper-linux
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            mv dist/woocommerce-scraper dist/woocommerce-scraper-mac
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -60,9 +69,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            woocommerce-scraper-linux/woocommerce-scraper-linux-x64
-            woocommerce-scraper-mac/woocommerce-scraper-darwin-x64
-            woocommerce-scraper-win/woocommerce-scraper.exe
+            woocommerce-scraper-linux/woocommerce-scraper-linux
+            woocommerce-scraper-mac/woocommerce-scraper-mac
+            woocommerce-scraper-win.exe/woocommerce-scraper.exe
           draft: false
           prerelease: false
           generate_release_notes: true
