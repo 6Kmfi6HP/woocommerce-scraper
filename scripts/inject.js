@@ -18,8 +18,11 @@ try {
 
   execSync(command);
   
-  // Re-sign after injection
-  execSync(`codesign --sign - "${binary}"`);
+  // Only run codesign on macOS
+  const platform = process.argv[2];
+  if (platform === 'mac') {
+    execSync(`codesign --sign - "${binary}"`);
+  }
 } catch (err) {
   console.error('Error during injection:', err);
   process.exit(1);
