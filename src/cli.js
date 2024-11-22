@@ -3,22 +3,22 @@ import prompts from 'prompts';
 const DEFAULT_CONCURRENCY = 5;
 
 const usage = `
-Usage: woocommerce-scraper <website-url> [options]
+使用方法: woocommerce-scraper <网站地址> [选项]
 
-Arguments:
-  website-url             Target WooCommerce website URL (required)
+参数:
+  网站地址             目标 WooCommerce 网站的 URL (必需)
 
-Options:
-  --limit <number>        Maximum number of products to scrape
-  --concurrency <number>  Number of concurrent browsers (default: 3)
-  -h, --help             Show this help message
+选项:
+  --limit <数字>       要抓取的最大商品数量
+  --concurrency <数字> 同时运行的浏览器数量 (默认: 3)
+  -h, --help          显示帮助信息
 
-Example:
+示例:
   woocommerce-scraper https://example.com --limit 100 --concurrency 5
 `;
 
 export async function parseArgs(args) {
-  // Show help if requested
+  // 显示帮助信息
   if (args.includes('-h') || args.includes('--help')) {
     console.log(usage);
     process.exit(0);
@@ -26,7 +26,7 @@ export async function parseArgs(args) {
 
   let websiteUrl, maxProducts, concurrency;
 
-  // Try to parse command line arguments first
+  // 首先尝试解析命令行参数
   if (args.length > 0) {
     websiteUrl = args[0];
     const limitIndex = args.findIndex(arg => arg === '--limit');
@@ -36,30 +36,40 @@ export async function parseArgs(args) {
 
     try {
       validateArgs(websiteUrl, limitIndex, maxProducts, concurrencyIndex, concurrency);
-      return { websiteUrl, maxProducts, concurrency };
+      return { 
+        websiteUrl: websiteUrl.replace(/\/+$/, ''),
+        maxProducts, 
+        concurrency 
+      };
     } catch (error) {
-      console.log('Invalid command line arguments:', error.message);
-      console.log('Switching to interactive mode...\n');
+      console.log('命令行参数无效:', error.message);
+      console.log('切换到交互模式...\n');
     }
   }
 
-  // If no valid command line args, use interactive prompts
+  // 如果没有有效的命令行参数，使用交互式提示
   const response = await prompts([
     {
       type: 'text',
       name: 'websiteUrl',
-      message: '请输入要抓取的WooCommerce网站地址:',
+      message: '请输入要抓取的 WooCommerce 网站地址:',
       validate: value => {
         if (!value) return '网站地址不能为空';
-        if (!value.startsWith('http')) return '网址必须以http://或https://开头';
+        if (!value.startsWith('http')) return '网址必须以 http:// 或 https:// 开头';
         return true;
       }
     },
     {
-      type: 'number',
+      type: 'text',
       name: 'maxProducts',
-      message: '要抓取的最大商品数量 (输入0表示无限制):',
-      initial: 0
+      message: '要抓取的最大商品数量 (输入 0 表示无限制):',
+      initial: '0',
+      validate: value => {
+        const num = parseInt(value);
+        if (isNaN(num)) return '请输入有效的数字';
+        if (num < 0) return '数量不能为负数';
+        return true;
+      }
     },
     {
       type: 'number',
@@ -67,33 +77,39 @@ export async function parseArgs(args) {
       message: '同时运行的浏览器数量:',
       initial: DEFAULT_CONCURRENCY,
       validate: value => {
-        if (value < 1) return '必须大于0';
+        if (value < 1) return '浏览器数量必须大于 0';
+        if (value > 10) return '为了系统稳定，建议不要超过 10 个浏览器';
         return true;
       }
     }
   ]);
 
   return {
-    websiteUrl: response.websiteUrl,
-    maxProducts: response.maxProducts === 0 ? Infinity : response.maxProducts,
+    websiteUrl: response.websiteUrl.replace(/\/+$/, ''),
+    maxProducts: parseInt(response.maxProducts) === 0 ? Infinity : parseInt(response.maxProducts),
     concurrency: response.concurrency
   };
 }
 
 export function validateArgs(websiteUrl, limitIndex, maxProducts, concurrencyIndex, concurrency) {
   if (!websiteUrl) {
-    throw new Error('Website URL is required');
+    throw new Error('缺少网站地址');
   }
 
   if (!websiteUrl.startsWith('http')) {
-    throw new Error('Invalid URL. Must start with http:// or https://');
+    throw new Error('无效的网址，必须以 http:// 或 https:// 开头');
   }
 
   if (limitIndex !== -1 && isNaN(maxProducts)) {
-    throw new Error('--limit must be a number');
+    throw new Error('--limit 参数必须是数字');
   }
 
-  if (concurrencyIndex !== -1 && isNaN(concurrency)) {
-    throw new Error('--concurrency must be a number');
+  if (concurrencyIndex !== -1) {
+    if (isNaN(concurrency)) {
+      throw new Error('--concurrency 参数必须是数字');
+    }
+    if (concurrency > 10) {
+      console.warn('警告: 并发数过高可能会影响系统稳定性');
+    }
   }
 }

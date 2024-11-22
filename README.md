@@ -1,58 +1,89 @@
-# WooCommerce Product Scraper
+# WooCommerce 商品数据抓取工具
 
-This tool allows you to scrape product data from any WooCommerce-powered website and export it to CSV format for easy import into another WooCommerce site.
+这是一个用于从任何 WooCommerce 网站抓取商品数据的工具，它可以将数据导出为 CSV 格式，方便导入到其他 WooCommerce 站点。
 
-## Installation
+## 功能特点
 
-### Using pre-built binaries
+- 支持多平台（Windows、macOS、Linux）
+- 自动检测系统浏览器（Chrome、Edge、Chromium）
+- 支持简单商品和变体商品
+- 智能重试机制
+- 并发抓取，提高效率
+- 详细的进度和统计信息
+- 导出为标准 WooCommerce CSV 格式
 
-1. Download the latest release for your platform from the Releases page
-2. Extract the archive
-3. Run the executable from terminal/command prompt
+## 安装
 
-### Building from source
+### 使用预编译版本
 
-1. Clone this repository
-2. Install dependencies:
+1. 从 Releases 页面下载适合你平台的最新版本
+2. 解压缩文件
+3. 在终端/命令提示符中运行可执行文件
+
+### 从源码构建
+
+1. 克隆此仓库
+2. 安装依赖：
    ```bash
    npm install
    ```
-3. Build binaries:
+3. 构建可执行文件：
    ```bash 
    npm run build
    ```
-   This will create executables in the dist/ directory for Windows, Mac and Linux.
+   这将在 dist/ 目录下为 Windows、Mac 和 Linux 创建可执行文件。
 
-## Usage
+## 使用方法
 
-### Using binary
+### 使用可执行文件
 
-1. Run the scraper:
+1. 运行抓取工具：
    ```bash
    npm start
    ```
 
-2. Enter the WooCommerce site URL when prompted
+2. 根据提示输入 WooCommerce 网站 URL
 
-3. The script will create a `woocommerce-products.csv` file containing all product data
+3. 程序会自动抓取商品数据并生成 CSV 文件
 
-## Import Instructions
+### 命令行参数
 
-1. Go to your WooCommerce admin panel
-2. Navigate to Products → Import
-3. Upload the generated CSV file
-4. Follow the WooCommerce import wizard
+```bash
+woocommerce-scraper <网站URL> [选项]
 
-## Data Collected
+选项：
+  --limit <数量>    限制抓取的商品数量
+  --threads <数量>  设置并发线程数（默认：3）
+```
 
-- Product name
-- Description
-- Regular price
-- Categories
-- Images
-- Product type (simple/variable)
-- Variations (for variable products)
-  - Attributes
-  - Prices
+## 导入说明
+
+1. 进入 WooCommerce 后台管理
+2. 转到"商品" → "导入"
+3. 上传生成的 CSV 文件
+4. 按照 WooCommerce 导入向导的提示操作
+
+## 抓取的数据
+
+- 商品名称
+- 商品描述（简短描述和完整描述）
+- 常规价格
+- 商品分类
+- 商品图片
+- 商品类型（简单商品/变体商品）
+- 商品变体（对于变体商品）
+  - 属性
+  - 价格
   - SKU
-  - Stock
+  - 库存
+
+## 注意事项
+
+1. 请遵守目标网站的使用条款和爬虫政策
+2. 建议设置合理的并发数和抓取间隔
+3. 确保网络连接稳定
+4. 如果遇到问题，可以查看程序输出的详细日志
+
+## 许可证
+
+MIT

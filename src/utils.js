@@ -1,28 +1,41 @@
 export function cleanDescription(html) {
     if (!html) return '';
 
-    // Remove wc-tab-inner div
-    html = html.replace(/<div class="wc-tab-inner">/g, '')
-        .replace(/<\/div>/g, ' ');
+    try {
+        // 移除脚本和样式标签及其内容
+        html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                   .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
 
-    // Clean up newlines and spaces
-    html = html.replace(/[\r\n]+/g, ' ')
-        .replace(/\s+/g, ' ');
+        // 移除 wc-tab-inner div
+        html = html.replace(/<div class="wc-tab-inner">/g, '')
+                   .replace(/<\/div>/g, ' ');
 
-    // Protect <img> tags
-    html = html.replace(/<img[^>]+>/g, match => {
-        const src = match.match(/src="([^"]+)"/);
-        return src ? `<img src="${src[1]}">` : '';
-    });
+        // 清理换行和空格
+        html = html.replace(/[\r\n]+/g, ' ')
+                   .replace(/\s+/g, ' ');
 
-    // Remove all tags except <p> and <img>
-    html = html.replace(/<(?!\/?(p|img)(?=>|\s.*>))\/?[^>]*>/g, ' ');
+        // 保护 <img> 标签，只保留 src 属性
+        html = html.replace(/<img[^>]+>/g, match => {
+            const src = match.match(/src="([^"]+)"/);
+            return src ? `<img src="${src[1]}">` : '';
+        });
 
-    // Clean up spaces and add newlines
-    html = html.replace(/\s+/g, ' ').trim();
-    html = html.replace(/<\/p>/g, '</p>\n');
+        // 移除所有标签，除了 <p> 和 <img>
+        html = html.replace(/<(?!\/?(p|img)(?=>|\s.*>))\/?[^>]*>/g, ' ');
 
-    return html.trim();
+        // 清理空格并添加换行
+        html = html.replace(/>\s+</g, '><')
+                   .replace(/<\/p>/g, '</p>\n')
+                   .trim();
+
+        // 移除空段落
+        html = html.replace(/<p>\s*<\/p>/g, '');
+
+        return html;
+    } catch (error) {
+        console.warn('清理描述时出错:', error.message);
+        return html || '';
+    }
 }
 
 export function extractTags(document) {
@@ -70,13 +83,13 @@ export function extractTags(document) {
 }
 
 export function logProductDetails(productData) {
-    console.log('\nProduct Details:');
-    console.log(`Name: ${productData.name || 'Not found'}`);
-    console.log(`Type: ${productData.type}`);
-    console.log(`Regular Price: ${productData.regular_price || 'Not found'}`);
-    console.log(`Categories: ${productData.categories.length ? productData.categories.join(', ') : 'None found'}`);
-    console.log(`Tags: ${productData.tags.length ? productData.tags.join(', ') : 'None found'}`);
-    console.log(`Images found: ${productData.images.length}`);
+    console.log('\n商品详情:');
+    console.log(`名称: ${productData.name || '未找到'}`);
+    console.log(`类型: ${productData.type}`);
+    console.log(`常规价格: ${productData.regular_price || '未找到'}`);
+    console.log(`分类: ${productData.categories.length ? productData.categories.join(', ') : '未找到'}`);
+    console.log(`标签: ${productData.tags.length ? productData.tags.join(', ') : '未找到'}`);
+    console.log(`找到图片数量: ${productData.images.length}`);
     console.log(productData);
     if (productData.type === 'variable' && productData.variations.length > 0) {
         logVariationDetails(productData.variations);
@@ -87,37 +100,37 @@ export function logProductDetails(productData) {
 }
 
 function logDescriptions(productData) {
-    console.log('\nDescriptions:');
+    console.log('\n商品描述:');
     if (productData.short_description) {
-        console.log(`Short Description: (${productData.short_description.length} chars)`);
+        console.log(`简短描述: (${productData.short_description.length} 字符)`);
         console.log(productData.short_description.substring(0, 150) + '...');
     } else {
-        console.log('No short description found');
+        console.log('未找到简短描述');
     }
 
     if (productData.full_description) {
-        console.log(`\nFull Description: (${productData.full_description.length} chars)`);
+        console.log(`\n完整描述: (${productData.full_description.length} 字符)`);
         console.log(productData.full_description.substring(0, 150) + '...');
     } else {
-        console.log('No full description found');
+        console.log('未找到完整描述');
     }
 }
 
 function logMissingFields(productData) {
     const missingFields = [];
-    if (!productData.name) missingFields.push('name');
-    if (!productData.regular_price) missingFields.push('price');
-    if (productData.images.length === 0) missingFields.push('images');
+    if (!productData.name) missingFields.push('名称');
+    if (!productData.regular_price) missingFields.push('价格');
+    if (productData.images.length === 0) missingFields.push('图片');
 
     if (missingFields.length > 0) {
-        console.log('\nWarning: Missing fields:', missingFields.join(', '));
+        console.log('\n警告: 缺少字段:', missingFields.join(', '));
     }
 }
 
 export function logVariationDetails(variations) {
-    console.log(`\nVariations (${variations.length}):`);
+    console.log(`\n商品变体 (${variations.length}个):`);
 
-    // Get the attribute name from the first variation
+    // 从第一个变体获取属性名称
     if (variations.length > 0) {
         const firstVariation = variations[0];
         const entries = Object.entries(firstVariation.attributes);
@@ -128,14 +141,13 @@ export function logVariationDetails(variations) {
         }
     }
 
-    // List all values
+    // 列出所有值
     variations.forEach(variation => {
         if (variation.attributes) {
             const entries = Object.entries(variation.attributes);
             if (entries.length > 0) {
                 const [, value] = entries[0];
                 if (value) {
-                    // console.log(`\nVariation #${variations.indexOf(variation) + 1}`);
                     let index = variations.indexOf(variation) + 1;
                     console.log(`${index}: ${value}`);
                 }
@@ -160,12 +172,12 @@ export function getProductVariations(document) {
 
         const variationsData = JSON.parse(jsonData);
         if (!Array.isArray(variationsData)) {
-            console.log('Invalid variations data format');
+            console.log('变体数据格式无效');
             return variations;
         }
 
         return variationsData.map(variation => {
-            // Validate and clean variation data
+            // 验证和清理变体数据
             const cleanVariation = {
                 attributes: variation.attributes || {},
                 price: variation.display_price || variation.price,
@@ -174,7 +186,7 @@ export function getProductVariations(document) {
                     variation.stock_quantity !== undefined ? variation.stock_quantity : null
             };
 
-            // Ensure attributes is an object
+            // 确保 attributes 是一个对象
             if (typeof cleanVariation.attributes !== 'object') {
                 cleanVariation.attributes = {};
             }
@@ -182,22 +194,22 @@ export function getProductVariations(document) {
             return cleanVariation;
         });
     } catch (e) {
-        console.log('Failed to parse variation data:', e.message);
+        console.log('解析变体数据失败:', e.message);
         return variations;
     }
 }
 
 export function getFilenameFromUrl(url) {
-    // Remove protocol and www
+    // 移除协议和 www
     let name = url.replace(/^https?:\/\/(www\.)?/, '');
     
-    // Remove TLD and path
+    // 移除 TLD 和路径
     name = name.split('/')[0].split('.')[0];
     
-    // Clean special characters
+    // 清理特殊字符
     name = name.replace(/[^a-z0-9]/gi, '-');
     
-    // Add timestamp
+    // 添加时间戳
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     
     return `woocommerce-${name}-${timestamp}.csv`;

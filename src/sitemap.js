@@ -1,4 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 export async function getSitemapUrls(siteUrl) {
     const parser = new XMLParser();
@@ -27,7 +29,7 @@ export async function getSitemapUrls(siteUrl) {
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                console.log(`Failed to fetch sitemap: ${url} (${response.status})`);
+                console.log(`获取站点地图失败: ${url} (${response.status})`);
                 return [];
             }
 
@@ -46,7 +48,7 @@ export async function getSitemapUrls(siteUrl) {
 
             return [];
         } catch (error) {
-            console.log(`Error processing sitemap ${url}:`, error.message);
+            console.log(`处理站点地图失败 ${url}:`, error.message);
             return [];
         }
     }
@@ -56,7 +58,7 @@ export async function getSitemapUrls(siteUrl) {
         try {
             const response = await fetch(indexUrl);
             if (!response.ok) {
-                console.log(`Failed to fetch sitemap index: ${indexUrl} (${response.status})`);
+                console.log(`获取站点地图索引失败: ${indexUrl} (${response.status})`);
                 return [];
             }
 
@@ -71,15 +73,15 @@ export async function getSitemapUrls(siteUrl) {
                 ? result.sitemapindex.sitemap
                 : [result.sitemapindex.sitemap];
 
-            console.log('Found sitemap index, processing sub-sitemaps...');
+            console.log('发现站点地图索引，正在处理子站点地图...');
 
             const allUrls = [];
             for (const sitemap of sitemaps) {
                 if (sitemap.loc) {
-                    console.log(`Checking sub-sitemap: ${sitemap.loc}`);
+                    console.log(`正在检查子站点地图: ${sitemap.loc}`);
                     const urls = await processSitemap(sitemap.loc);
                     if (urls.length > 0) {
-                        console.log(`Found ${urls.length} product URLs in sub-sitemap`);
+                        console.log(`在子站点地图中发现 ${urls.length} 个商品 URL`);
                         allUrls.push(...urls);
                     }
                 }
@@ -87,7 +89,7 @@ export async function getSitemapUrls(siteUrl) {
 
             return allUrls;
         } catch (error) {
-            console.log(`Error processing sitemap index ${indexUrl}:`, error.message);
+            console.log(`处理站点地图索引失败 ${indexUrl}:`, error.message);
             return [];
         }
     }
@@ -96,11 +98,11 @@ export async function getSitemapUrls(siteUrl) {
     for (const location of sitemapLocations) {
         try {
             const fullUrl = siteUrl + location;
-            console.log(`Checking sitemap at: ${fullUrl}`);
+            console.log(`正在检查站点地图: ${fullUrl}`);
 
             const response = await fetch(fullUrl);
             if (!response.ok) {
-                console.log(`Sitemap not found at ${location} (${response.status})`);
+                console.log(`站点地图不存在 ${location} (${response.status})`);
                 continue;
             }
 
@@ -118,32 +120,32 @@ export async function getSitemapUrls(siteUrl) {
             else if (result.urlset) {
                 const urls = await processSitemap(fullUrl);
                 if (urls.length > 0) {
-                    console.log(`Found ${urls.length} product URLs in sitemap at ${location}`);
+                    console.log(`在站点地图中发现 ${urls.length} 个商品 URL`);
                     productUrls.push(...urls);
                 }
             }
 
             if (productUrls.length > 0) {
-                console.log('\nProduct URLs found:');
+                console.log('\n发现商品 URL:');
                 productUrls.slice(0, 3).forEach(url => console.log(`- ${url}`));
                 if (productUrls.length > 3) {
-                    console.log(`... and ${productUrls.length - 3} more`);
+                    console.log(`... 和另外 ${productUrls.length - 3} 个`);
                 }
                 break;
             }
         } catch (error) {
-            console.log(`Error processing sitemap at ${location}:`, error.message);
+            console.log(`处理站点地图失败 ${location}:`, error.message);
             continue;
         }
     }
 
     if (productUrls.length === 0) {
-        throw new Error('No product URLs found in any sitemap. Make sure the site has a sitemap with product URLs.');
+        throw new Error('未找到任何商品 URL。请确保站点有一个包含商品 URL 的站点地图。');
     }
 
     // Remove duplicates and sort
     productUrls = [...new Set(productUrls)].sort();
-    console.log(`\nTotal unique product URLs found: ${productUrls.length}`);
+    console.log(`\n总共发现 ${productUrls.length} 个唯一商品 URL`);
 
     return productUrls;
 }
@@ -151,11 +153,11 @@ export async function getSitemapUrls(siteUrl) {
 // Helper function to validate sitemap URL
 export function validateSitemapUrl(url) {
     if (!url) {
-        throw new Error('Sitemap URL is required');
+        throw new Error('站点地图 URL 是必需的');
     }
 
     if (!url.startsWith('http')) {
-        throw new Error('Invalid sitemap URL. Must start with http:// or https://');
+        throw new Error('无效的站点地图 URL。必须以 http:// 或 https:// 开头');
     }
 
     return true;

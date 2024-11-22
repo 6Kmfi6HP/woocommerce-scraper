@@ -6,6 +6,8 @@ import { logProductDetails } from './utils.js';
 import Queue from './queue.js';
 import { getFilenameFromUrl } from './utils.js';
 import { findChromePath } from './browser.js';
+import * as cheerio from 'cheerio';
+import axios from 'axios';
 
 const DEFAULT_CONCURRENCY = 3; // Default number of concurrent browsers
 
@@ -13,32 +15,212 @@ const DEFAULT_CONCURRENCY = 3; // Default number of concurrent browsers
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 5000; // 5 seconds
 
+// 商品数据选择器配置
+const SELECTORS = {
+    title: [
+        '.product_title',
+        '.entry-title',
+        'h1.title',
+        '[itemprop="name"]'
+    ],
+    price: [
+        '.price',
+        '.amount',
+        '[itemprop="price"]',
+        '.product-price'
+    ],
+    description: [
+        '.woocommerce-product-details__short-description',
+        '.description',
+        '[itemprop="description"]',
+        '#tab-description'
+    ],
+    sku: [
+        '.sku',
+        '[itemprop="sku"]',
+        '.product_meta .sku'
+    ],
+    images: [
+        '.woocommerce-product-gallery__image img',
+        '.product-images img',
+        '.images img'
+    ],
+    categories: [
+        '.posted_in a',
+        '.product-category a',
+        '[rel="tag"]'
+    ],
+    attributes: [
+        '.variations_form',
+        '.product-attributes',
+        '.woocommerce-product-attributes'
+    ]
+};
+
+/**
+ * 从页面中提取文本内容
+ * @param {CheerioStatic} $ - Cheerio 实例
+ * @param {string[]} selectors - 选择器数组
+ * @returns {string} - 提取的文本
+ */
+function extractText($, selectors) {
+    for (const selector of selectors) {
+        const element = $(selector).first();
+        if (element.length) {
+            return element.text().trim();
+        }
+    }
+    return '';
+}
+
+/**
+ * 从页面中提取图片 URL
+ * @param {CheerioStatic} $ - Cheerio 实例
+ * @param {string[]} selectors - 选择器数组
+ * @returns {string[]} - 图片 URL 数组
+ */
+function extractImages($, selectors) {
+    const images = new Set();
+    for (const selector of selectors) {
+        $(selector).each((_, element) => {
+            const src = $(element).attr('src') || $(element).attr('data-src');
+            if (src) {
+                images.add(src);
+            }
+        });
+        if (images.size > 0) break;
+    }
+    return Array.from(images);
+}
+
+/**
+ * 从页面中提取属性
+ * @param {CheerioStatic} $ - Cheerio 实例
+ * @param {string[]} selectors - 选择器数组
+ * @returns {Object} - 属性对象
+ */
+function extractAttributes($, selectors) {
+    const attributes = {};
+    for (const selector of selectors) {
+        const table = $(selector);
+        if (table.length) {
+            table.find('tr').each((_, row) => {
+                const label = $(row).find('th').text().trim();
+                const value = $(row).find('td').text().trim();
+                if (label && value) {
+                    attributes[label] = value;
+                }
+            });
+            break;
+        }
+    }
+    return attributes;
+}
+
+/**
+ * 提取商品变体信息
+ * @param {CheerioStatic} $ - Cheerio 实例
+ * @returns {Object[]} - 变体数组
+ */
+function extractVariations($) {
+    const variations = [];
+    const form = $('.variations_form');
+    
+    if (form.length) {
+        const variationsData = form.attr('data-product_variations');
+        try {
+            const parsed = JSON.parse(variationsData);
+            return parsed.map(v => ({
+                sku: v.sku || '',
+                price: v.display_price || '',
+                attributes: v.attributes || {}
+            }));
+        } catch (e) {
+            console.warn('解析变体数据失败:', e.message);
+        }
+    }
+    
+    return variations;
+}
+
+/**
+ * 从页面中提取商品数据
+ * @param {string} url - 商品页面 URL
+ * @returns {Promise<Object>} - 商品数据对象
+ */
+async function scrapeProduct(url) {
+    try {
+        console.log(`\n正在抓取商品: ${url}`);
+        const response = await axios.get(url);
+        const $ = cheerio.load(response.data);
+
+        // 基本信息
+        const title = extractText($, SELECTORS.title);
+        const price = extractText($, SELECTORS.price);
+        const description = extractText($, SELECTORS.description);
+        const sku = extractText($, SELECTORS.sku);
+        
+        // 图片
+        const images = extractImages($, SELECTORS.images);
+        
+        // 分类
+        const categories = [];
+        $(SELECTORS.categories[0]).each((_, element) => {
+            categories.push($(element).text().trim());
+        });
+        
+        // 属性
+        const attributes = extractAttributes($, SELECTORS.attributes);
+        
+        // 变体
+        const variations = extractVariations($);
+
+        const product = {
+            url,
+            title,
+            price,
+            description,
+            sku,
+            images: images.join(', '),
+            categories: categories.join(', '),
+            attributes: JSON.stringify(attributes),
+            variations: JSON.stringify(variations)
+        };
+
+        console.log(`✓ 成功抓取商品: ${title}`);
+        return product;
+    } catch (error) {
+        console.error(`抓取失败 [${url}]:`, error.message);
+        return null;
+    }
+}
+
 export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEFAULT_CONCURRENCY) {
-    console.log(`\nStarting scrape of: ${siteUrl} with ${concurrency} concurrent browsers`);
+    console.log(`\n开始抓取网站: ${siteUrl}，使用 ${concurrency} 个并发浏览器`);
     if (productLimit !== Infinity) {
-        console.log(`Will scrape up to ${productLimit} products`);
+        console.log(`计划抓取商品数量: ${productLimit}`);
     }
 
-    const spinner = ora('Starting browser...').start();
+    const spinner = ora('正在启动浏览器...').start();
     const browsers = [];
 
     try {
-        spinner.text = 'Fetching sitemap...';
+        spinner.text = '正在获取网站地图...';
         const productUrls = await getSitemapUrls(siteUrl);
 
         const urlsToScrape = productUrls.slice(0, productLimit);
-        console.log(`Will scrape ${urlsToScrape.length} out of ${productUrls.length} available products`);
+        console.log(`\n找到 ${productUrls.length} 个商品，将抓取其中的 ${urlsToScrape.length} 个`);
 
-        // Initialize queue and results array
+        // 初始化队列和结果数组
         const queue = new Queue(urlsToScrape);
         const results = [];
 
-        // Create worker function
+        // 创建工作进程
         async function worker(workerId) {
             const browserPath = findChromePath();
             const launchOptions = {
                 headless: 'new',
-                protocolTimeout: 30000, // 30 second protocol timeout
+                protocolTimeout: 30000,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -48,10 +230,9 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
                 ]
             };
 
-            // Add executablePath only if a system browser was found
             if (browserPath) {
                 launchOptions.executablePath = browserPath;
-                console.log(`Using system browser at: ${browserPath}`);
+                console.log(`使用系统浏览器: ${browserPath}`);
             }
 
             const browser = await puppeteer.launch(launchOptions);
@@ -67,8 +248,8 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
                 const url = queue.next();
                 if (!url) break;
 
-                spinner.text = `Worker ${workerId}: Scraping product ${queue.processed}/${urlsToScrape.length}...`;
-                console.log(`\nWorker ${workerId} scraping: ${url}`);
+                spinner.text = `工作进程 ${workerId}: 正在抓取商品 ${queue.processed}/${urlsToScrape.length}...`;
+                console.log(`\n工作进程 ${workerId} 正在抓取: ${url}`);
 
                 // Add retry logic
                 let attempts = 0;
@@ -273,7 +454,7 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
                                             const variationsData = JSON.parse(decodedJson);
                                             if (Array.isArray(variationsData) && variationsData.length > 0) {
                                                 method = 'data-product_variations';
-                                                ora('Using method:', method).spinner();
+                                                ora('使用方法:', method).spinner();
                                                 
                                                 // Get all unique attribute names
                                                 const attributeNames = new Set();
@@ -332,7 +513,7 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
 
                                     if (hasValidOptions) {
                                         method = 'additional_information';
-                                        console.log('Using method:', method);
+                                        console.log('使用方法:', method);
                                         variations = createVariationsFromAttributes(attributes);
                                         if (variations.length > 0) return variations;
                                     }
@@ -362,7 +543,7 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
 
                                     if (hasValidOptions) {
                                         method = 'variations_table';
-                                        console.log('Using method:', method);
+                                        console.log('使用方法:', method);
                                         variations = createVariationsFromAttributes(attributes);
                                         if (variations.length > 0) return variations;
                                     }
@@ -388,13 +569,13 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
 
                                     if (hasValidOptions) {
                                         method = 'select_elements';
-                                        console.log('Using method:', method);
+                                        console.log('使用方法:', method);
                                         variations = createVariationsFromAttributes(attributes);
                                         if (variations.length > 0) return variations;
                                     }
                                 }
 
-                                console.log('No variations found using any method');
+                                console.log('没有找到任何变体');
                                 return [];
                             }
 
@@ -486,10 +667,10 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
 
                     } catch (error) {
                         attempts++;
-                        console.error(`Worker ${workerId} error (attempt ${attempts}/${RETRY_ATTEMPTS}) scraping ${url}:`, error.message);
+                        console.error(`工作进程 ${workerId} 出错 (尝试 ${attempts}/${RETRY_ATTEMPTS}) 抓取 ${url}:`, error.message);
 
                         if (attempts === RETRY_ATTEMPTS) {
-                            console.error(`Worker ${workerId} failed to scrape ${url} after ${RETRY_ATTEMPTS} attempts`);
+                            console.error(`工作进程 ${workerId} 抓取 ${url} 失败`);
                             break;
                         }
 
@@ -504,7 +685,7 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
                 await page.close();
                 await browser.close();
             } catch (error) {
-                console.error(`Error closing browser for worker ${workerId}:`, error.message);
+                console.error(`关闭浏览器出错 [工作进程 ${workerId}]:`, error.message);
             }
         }
 
@@ -514,7 +695,7 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
         try {
             await Promise.all(workers);
         } catch (error) {
-            console.error('Error in worker pool:', error);
+            console.error('工作进程池出错:', error);
         }
 
         // Ensure all browsers are closed
@@ -524,17 +705,17 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
                     await browser.close();
                 }
             } catch (error) {
-                console.error('Error closing browser:', error.message);
+                console.error('关闭浏览器出错:', error.message);
             }
         }
 
         const filename = getFilenameFromUrl(siteUrl);
         await writeToCsv(results, filename);
-        spinner.succeed(`Successfully scraped ${results.length} products! Check ${filename}`);
+        spinner.succeed(`成功抓取 ${results.length} 个商品！查看 ${filename}`);
 
     } catch (error) {
-        spinner.fail('Error occurred during scraping');
-        console.error('Detailed error:', error);
+        spinner.fail('抓取过程中出错');
+        console.error('错误详情:', error);
 
         // Cleanup on error
         for (const browser of browsers) {
@@ -543,7 +724,7 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
                     await browser.close();
                 }
             } catch (closeError) {
-                console.error('Error closing browser during cleanup:', closeError.message);
+                console.error('关闭浏览器出错 [清理]:', closeError.message);
             }
         }
 

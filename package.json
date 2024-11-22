@@ -1,5 +1,7 @@
 {
   "name": "woocommerce-scraper",
+  "version": "1.0.0",
+  "description": "WooCommerce 商品数据抓取工具",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,17 +13,13 @@
     "sea:sign": "node scripts/sign.js",
     "sea:inject": "node scripts/inject.js",
     "build": "npm run bundle && npm run sea:prep && npm run sea:copy && npm run sea:sign && npm run sea:inject",
-    "build:mac": "npm run bundle && npm run sea:prep && npm run sea:copy:mac && npm run sea:sign:mac && npm run sea:inject:mac", 
+    "build:mac": "npm run bundle && npm run sea:prep && npm run sea:copy:mac && npm run sea:sign:mac && npm run sea:inject:mac",
     "build:linux": "npm run bundle && npm run sea:prep && npm run sea:copy:linux && npm run sea:inject:linux",
-    
     "sea:copy:mac": "cp $(which node) dist/woocommerce-scraper",
     "sea:copy:linux": "cp $(which node) dist/woocommerce-scraper",
-    
     "sea:sign:mac": "node scripts/sign.js mac",
-    
     "sea:inject:mac": "node scripts/inject.js mac",
     "sea:inject:linux": "node scripts/inject.js linux",
-    
     "build:all": "npm run build:mac && npm run build:linux",
     "download:win-node": "curl -o dist/node.exe https://nodejs.org/dist/v20.12.0/win-x64/node.exe",
     "sea:copy:win": "copy dist\\node.exe dist\\woocommerce-scraper.exe",
@@ -32,6 +30,8 @@
     "build:ci:win": "npm run bundle && npm run sea:prep && npm run download:win-node && npm run sea:copy:win && npm run sea:inject:win"
   },
   "dependencies": {
+    "axios": "^1.7.7",
+    "cheerio": "^1.0.0",
     "csv-writer": "^1.6.0",
     "fast-xml-parser": "^4.5.0",
     "node-fetch": "^3.3.2",
@@ -48,5 +48,14 @@
     "assets": [
       "src/**/*"
     ]
-  }
+  },
+  "author": "Codeium",
+  "license": "MIT",
+  "keywords": [
+    "woocommerce",
+    "scraper",
+    "爬虫",
+    "商品数据",
+    "自动化"
+  ]
 }
