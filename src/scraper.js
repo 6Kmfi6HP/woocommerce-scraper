@@ -5,6 +5,7 @@ import { getSitemapUrls } from './sitemap.js';
 import { logProductDetails } from './utils.js';
 import Queue from './queue.js';
 import { getFilenameFromUrl } from './utils.js';
+import { findChromePath } from './browser.js';
 
 const DEFAULT_CONCURRENCY = 3; // Default number of concurrent browsers
 
@@ -34,7 +35,8 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
 
         // Create worker function
         async function worker(workerId) {
-            const browser = await puppeteer.launch({
+            const browserPath = findChromePath();
+            const launchOptions = {
                 headless: 'new',
                 protocolTimeout: 30000, // 30 second protocol timeout
                 args: [
@@ -44,7 +46,15 @@ export async function scrapeWooCommerce(siteUrl, productLimit, concurrency = DEF
                     '--disable-accelerated-2d-canvas',
                     '--disable-gpu'
                 ]
-            });
+            };
+
+            // Add executablePath only if a system browser was found
+            if (browserPath) {
+                launchOptions.executablePath = browserPath;
+                console.log(`Using system browser at: ${browserPath}`);
+            }
+
+            const browser = await puppeteer.launch(launchOptions);
 
             browsers.push(browser);
             const page = await browser.newPage();
